@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1F1E1D">
+<meta name="color-scheme" content="dark">
+<title>Family Tree</title>
+<style>
+:root{
+  --bg:#1F1E1D;--surface:#262624;--surface-2:#30302E;--border:#3E3E3B;--border-soft:#343432;
+  --text:#F5F4EF;--muted:#A8A5A0;--faint:#6F6C66;--accent:#D97757;
+  --accent-dim:rgba(217,119,87,.16);--accent-line:rgba(217,119,87,.45);
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,ui-serif,serif;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--r:12px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.5;overflow:hidden;overscroll-behavior:none}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;transition:background .15s,border-color .15s,transform .08s;white-space:nowrap}
+.btn:hover{background:#3A3A37;border-color:#4A4A46}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#25130C;font-weight:600}
+.btn.primary:hover{background:#E08965;border-color:#E08965}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn.danger{background:transparent;border-color:#5A3A34;color:#E08E7A}
+.btn.danger:hover{background:#3A2723;border-color:#7A4A40}
+.btn.icon{padding:8px;width:36px;height:36px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+#gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+#gate .inner{width:100%;max-width:340px;text-align:center;animation:rise .5s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+#gate .mark{width:52px;height:52px;margin:0 auto 22px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;background:var(--surface)}
+#gate .mark svg{width:24px;height:24px;stroke:var(--accent);fill:none;stroke-width:1.5}
+#gate h1{font-family:var(--serif);font-weight:400;font-size:30px;letter-spacing:-.01em;margin:0 0 8px}
+#gate p{color:var(--muted);font-size:14px;margin:0 0 26px}
+#gate .row{display:flex;gap:8px}
+#gate input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:16px}
+#gate input:focus{outline:none;border-color:var(--accent)}
+#gate .err{color:#E08E7A;font-size:13px;margin-top:14px;min-height:18px}
+.shake{animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+#topbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-soft);background:var(--bg);z-index:20;padding-top:max(10px,env(safe-area-inset-top))}
+#topbar .title{font-family:var(--serif);font-size:19px;font-weight:400;letter-spacing:-.01em;white-space:nowrap}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:0 0 auto;transition:background .25s}
+.status-dot.ok{background:var(--accent)}
+.status-dot.syncing{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+.status-dot.error{background:#E08E7A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#topbar .count{color:var(--faint);font-size:12.5px;font-family:var(--mono);margin-right:auto}
+#search{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 12px;width:190px;font-size:14px}
+#search:focus{outline:none;border-color:var(--accent)}
+#search::placeholder{color:var(--faint)}
+.bar-actions{display:flex;gap:7px;align-items:center}
+#stage{position:relative;flex:1;overflow:hidden;cursor:grab;background:radial-gradient(circle at 1px 1px,#2E2E2B 1px,transparent 0) 0 0/26px 26px,var(--bg);touch-action:none}
+#stage.grabbing{cursor:grabbing}
+#world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+#links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+#rail{position:absolute;left:0;top:0;bottom:0;width:56px;pointer-events:none;z-index:5;background:linear-gradient(90deg,var(--bg) 55%,transparent)}
+.rail-mark{position:absolute;left:0;width:56px;text-align:center;font-family:var(--serif);font-size:13px;color:var(--faint);letter-spacing:.14em;transform:translateY(-50%)}
+.rail-mark::after{content:'';position:absolute;left:14px;right:14px;top:calc(100% + 7px);height:1px;background:var(--border-soft)}
+.card{position:absolute;width:200px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,background .15s,box-shadow .15s;overflow:hidden}
+.card:hover{border-color:#55534E;background:#2C2C29}
+.card.selected{border-color:var(--accent);background:#2E2320;box-shadow:0 0 0 3px var(--accent-dim)}
+.card.hit{border-color:var(--accent-line)}
+.card.dim{opacity:.28}
+.card-head{display:flex;gap:8px;align-items:flex-start}
+.card-head .gender{font-size:18px;flex:0 0 auto;opacity:.65;line-height:1;padding-top:3px}
+.card-head .names{flex:1;min-width:0}
+.card .nm{font-family:var(--serif);font-size:15px;line-height:1.25;font-weight:400;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.card .yr{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin:2px 0 0}
+.card .living{position:absolute;top:11px;right:11px;width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.card-details{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border-soft);padding-top:8px}
+.card-detail{display:flex;gap:6px;align-items:flex-start}
+.card-detail .icon{flex:0 0 auto;opacity:.55;font-size:11px;margin-top:1px}
+.card-detail .text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#zoom{position:absolute;right:14px;z-index:15;bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px}
+#zoom .btn{width:38px;height:38px;padding:0;background:var(--surface);box-shadow:0 2px 10px rgba(0,0,0,.35);font-size:17px}
+#empty,#loading{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;z-index:6}
+#empty[hidden]{display:none}
+#loading{z-index:50;background:var(--bg);display:none}
+#loading.show{display:grid}
+#empty .box,#loading .box{max-width:300px}
+#empty{pointer-events:none}
+#empty .box{pointer-events:auto}
+#empty h2,#loading h2{font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 8px}
+#empty p,#loading p{color:var(--muted);font-size:14px;margin:0 0 18px}
+.spin{width:26px;height:26px;border-radius:50%;margin:0 auto 16px;border:2px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#panel{position:absolute;top:0;right:0;bottom:0;width:370px;z-index:30;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);padding-top:env(safe-area-inset-top)}
+#panel.open{transform:none}
+.panel-head{display:flex;align-items:flex-start;gap:10px;padding:16px 16px 12px;border-bottom:1px solid var(--border-soft)}
+.panel-head h2{font-family:var(--serif);font-weight:400;font-size:21px;line-height:1.2;margin:0;flex:1}
+.panel-head .sub{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:5px}
+.panel-body{flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch}
+.panel-foot{padding:12px 16px;border-top:1px solid var(--border-soft);display:flex;gap:8px;flex-wrap:wrap;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.field{margin-bottom:16px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:6px;font-weight:600}
+.field .val{font-size:14.5px;color:var(--text);white-space:pre-wrap}
+.field .val.none{color:var(--faint);font-style:italic}
+.field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:16px}
+.field textarea{resize:vertical;min-height:96px;line-height:1.55}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;align-items:center;gap:9px;cursor:pointer;padding:4px 0}
+.check input{width:17px;height:17px;accent-color:var(--accent);flex:0 0 auto}
+.check span{font-size:14px}
+.rel-group{margin-top:20px;padding-top:16px;border-top:1px solid var(--border-soft)}
+.rel-group h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin:0 0 10px;font-weight:600}
+.rel-list{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.rel-item{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border-soft);border-radius:8px;padding:8px 10px;font-size:13.5px;cursor:pointer;text-align:left;width:100%;transition:border-color .12s}
+.rel-item:hover{border-color:var(--border)}
+.rel-item .rel-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-item .kind{font-family:var(--mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;flex:0 0 auto}
+.rel-item .unlink{flex:0 0 auto;width:22px;height:22px;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--faint);font-size:13px;cursor:pointer;display:grid;place-items:center;transition:background .12s,color .12s,border-color .12s;margin-left:4px;padding:0}
+.rel-item .unlink:hover{background:#3A2723;border-color:#7A4A40;color:#E08E7A}
+.rel-actions{display:flex;gap:7px;flex-wrap:wrap}
+.divider{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:16px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border-soft)}
+#modal{position:fixed;inset:0;z-index:60;background:rgba(15,14,13,.72);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+#modal.open{display:flex}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:420px;padding:22px;max-height:88vh;overflow-y:auto;animation:pop .2s ease both}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.sheet h3{font-family:var(--serif);font-weight:400;font-size:20px;margin:0 0 4px}
+.sheet .lede{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.5}
+.sheet .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:13.5px;z-index:90;opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:86vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#fatal{position:fixed;inset:0;z-index:300;background:var(--bg);color:var(--text);display:none;align-items:center;justify-content:center;padding:24px;text-align:center}
+#fatal.show{display:flex}
+#fatal .box{max-width:420px}
+#fatal h2{font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 10px;color:#E08E7A}
+#fatal p{color:var(--muted);font-size:14px;line-height:1.6}
+#fatal code{display:block;margin-top:14px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:#E08E7A;text-align:left;white-space:pre-wrap;word-break:break-word}
+@media(max-width:860px){#search{width:130px}#topbar .count{display:none}.label-hide{display:none}.btn{padding:8px 11px}}
+@media(max-width:660px){
+  #topbar{gap:7px;padding:9px 11px;padding-top:max(9px,env(safe-area-inset-top))}
+  #topbar .title{font-size:17px}
+  #search{width:0;flex:1;min-width:0}
+  #panel{top:auto;left:0;right:0;bottom:0;width:auto;height:84vh;border-left:none;border-top:1px solid var(--border);border-radius:18px 18px 0 0;transform:translateY(102%)}
+  #panel.open{transform:none}
+  .panel-head{padding-top:20px}
+  .panel-head::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:2px;background:var(--border)}
+  #rail{width:42px}.rail-mark{width:42px;font-size:11px}
+}
+@media(max-height:520px) and (orientation:landscape){
+  #panel{top:0;bottom:0;left:auto;right:0;width:min(340px,52vw);height:auto;border-radius:0;border-left:1px solid var(--border);border-top:none;transform:translateX(102%)}
+  #panel.open{transform:none}
+  .panel-head::before{display:none}
+  .panel-head{padding-top:12px}
+  #topbar{padding-top:6px;padding-bottom:6px}
+}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="inner">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21V11M12 11l-5-4M12 11l5-4M7 7V4M17 7V4"/>
+        <circle cx="12" cy="22" r="1.2" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <h1>The Family Tree</h1>
+    <p>Enter the family password to continue.</p>
+    <form class="row" id="gate-form" onsubmit="event.preventDefault();">
+      <input id="gate-input" type="password" placeholder="Password" autocomplete="current-password" aria-label="Family password">
+      <button class="btn primary" type="submit">Enter</button>
+    </form>
+    <div class="err" id="gate-err"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <div id="topbar">
+    <span class="title">Family Tree</span>
+    <span id="status" class="status-dot" title="Connecting..."></span>
+    <span class="count" id="count"></span>
+    <input id="search" type="search" placeholder="Search names..." aria-label="Search names">
+    <div class="bar-actions">
+      <button class="btn primary" id="btn-add">+<span class="label-hide">&nbsp;Person</span></button>
+      <button class="btn" id="btn-export">Backup</button>
+      <button class="btn" id="btn-import">Restore</button>
+      <button class="btn ghost icon" id="btn-lock" title="Lock" aria-label="Lock">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      </button>
+    </div>
+    <input type="file" id="file-input" accept="application/json,.json" hidden>
+  </div>
+  <div id="stage">
+    <div id="world"><svg id="links"></svg></div>
+    <div id="rail"></div>
+    <div id="loading"><div class="box"><div class="spin"></div><p>Loading the family tree...</p></div></div>
+    <div id="empty" hidden>
+      <div class="box">
+        <h2>Start the tree</h2>
+        <p>Add the earliest relative you know of. Everyone else branches out from there.</p>
+        <button class="btn primary" id="btn-first">Add the first person</button>
+      </div>
+    </div>
+    <div id="zoom">
+      <button class="btn icon" id="z-in" aria-label="Zoom in">+</button>
+      <button class="btn icon" id="z-out" aria-label="Zoom out">&#8722;</button>
+      <button class="btn icon" id="z-fit" title="Fit to screen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </div>
+  </div>
+  <aside id="panel" aria-label="Person details">
+    <div class="panel-head">
+      <div style="flex:1;min-width:0">
+        <h2 id="p-name">&#8212;</h2>
+        <div class="sub" id="p-sub"></div>
+      </div>
+      <button class="btn ghost icon" id="p-close" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="panel-body" id="p-body"></div>
+    <div class="panel-foot" id="p-foot"></div>
+  </aside>
+</div>
+
+<div id="modal"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+<div id="fatal">
+  <div class="box">
+    <h2>Page failed to load</h2>
+    <p>A script error occurred before the app could start. Try reloading.</p>
+    <code id="fatal-msg"></code>
+  </div>
+</div>
+
+<script>
+window.addEventListener('error',function(e){
+  if(!document.getElementById('app').hidden) return;
+  var m=document.getElementById('fatal-msg');
+  if(m) m.textContent=(e.message||'Unknown')+(e.filename?'\n'+e.filename+':'+e.lineno:'');
+  document.getElementById('fatal').classList.add('show');
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+'use strict';
+
+/* ======= CONFIG ======= */
+var SUPABASE_URL  = 'https://tqtyfkwwdletspcfwlwv.supabase.co';
+var SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxdHlma3d3ZGxldHNwY2Z3bHd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODQyNjcsImV4cCI6MjEwMDg2MDI2N30.dG_OaOtdvNyi2Dfmmk6OPTUX2sIgtvuPfOQ7gN2e7cA';
+var FAMILY_HEADER = 'x-family-key';
+var PASSWORD      = 'Booth5026';
+var POLL_MS       = 8000;
+/* ====================== */
+
+var SESSION_KEY='familyTree.unlocked';
+var NODE_W=200,NODE_H=120,SIB_GAP=30,COUPLE_GAP=26,GEN_GAP=100,TREE_GAP=90,PAD=140;
+var ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+var state={people:[]},selectedId=null;
+var layout={nodes:[],links:[],bounds:{x:0,y:0,w:0,h:0},rows:[]};
+var view={x:0,y:0,k:1},sb=null,pollTimer=null;
+var $=function(id){return document.getElementById(id);};
+var stage,world,svg;
+
+/* === HELPERS === */
+function uid(){return 'p'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);}
+function byId(id){for(var i=0;i<state.people.length;i++){if(state.people[i].id===id)return state.people[i];}return null;}
+function childrenOf(id){return state.people.filter(function(p){return p.parents.indexOf(id)>-1;});}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function yearOf(s){var m=String(s||'').match(/\b(1[0-9]{3}|20[0-9]{2})\b/);return m?m[1]:'';}
+function gSym(g){return g==='M'?'\u2642':g==='F'?'\u2640':'';}
+function gLabel(g){return g==='M'?'Male':g==='F'?'Female':g||'';}
+function lifespan(p){
+  var b=yearOf(p.dob),d=yearOf(p.dod);
+  if(p.living)return b?'b. '+b:'Living';
+  if(b&&d)return b+'\u2013'+d;
+  if(b)return b+'\u2013?';
+  if(d)return '?\u2013'+d;
+  return '';
+}
+function toast(msg){var t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2500);}
+function setStatus(k){var d=$('status');d.className='status-dot'+(k?' '+k:'');d.title=k==='ok'?'Synced':k==='syncing'?'Syncing...':k==='error'?'Could not sync':'Connecting...';}
+function blankPerson(name){return{id:uid(),name:name||'Unnamed',gender:'',living:true,dob:'',dod:'',birthplace:'',occupation:'',current:'',summary:'',parents:[],partners:[]};}
+function normalise(d){
+  var people=(d.people||[]).map(function(p){
+    return{id:p.id||uid(),name:p.name||'Unnamed',gender:p.gender||'',living:p.living!==false,
+           dob:p.dob||'',dod:p.dod||'',birthplace:p.birthplace||'',occupation:p.occupation||'',
+           current:p.current||'',summary:p.summary||'',
+           parents:Array.isArray(p.parents)?p.parents.slice(0,2):[],
+           partners:Array.isArray(p.partners)?p.partners:[]};
+  });
+  var ids={};people.forEach(function(p){ids[p.id]=true;});
+  people.forEach(function(p){
+    p.parents=p.parents.filter(function(x){return ids[x]&&x!==p.id;});
+    p.partners=p.partners.filter(function(x){return ids[x]&&x!==p.id;});
+  });
+  return{people:people};
+}
+
+/* === SUPABASE === */
+function initClient(){var h={};h[FAMILY_HEADER]=PASSWORD;sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{global:{headers:h}});}
+function rowToP(r){return{id:r.id,name:r.name,gender:r.gender||'',living:!!r.living,dob:r.dob||'',dod:r.dod||'',birthplace:r.birthplace||'',occupation:r.occupation||'',current:r.current_location||'',summary:r.summary||'',parents:Array.isArray(r.parents)?r.parents:[],partners:Array.isArray(r.partners)?r.partners:[]};}
+function pToRow(p){return{id:p.id,name:p.name,gender:p.gender,living:p.living,dob:p.dob,dod:p.dod,birthplace:p.birthplace,occupation:p.occupation,current_location:p.current,summary:p.summary,parents:p.parents,partners:p.partners};}
+function dbFetchAll(){return sb.from('people').select('*').order('created_at',{ascending:true}).then(function(r){if(r.error)throw r.error;return r.data.map(rowToP);});}
+function dbInsert(p){return sb.from('people').insert(pToRow(p)).select('id').then(function(r){if(r.error)throw r.error;return r;});}
+function dbUpdate(p){return sb.from('people').update(pToRow(p)).eq('id',p.id).select('id').then(function(r){if(r.error)throw r.error;if(!r.data||!r.data.length)throw new Error('blocked');return r;});}
+function dbDelete(id){return sb.from('people').delete().eq('id',id).select('id').then(function(r){if(r.error)throw r.error;if(!r.data||!r.data.length)throw new Error('blocked');return r;});}
+function dbReplaceAll(list){return sb.from('people').delete().neq('id','').then(function(r){if(r.error)throw r.error;if(!list.length)return null;return sb.from('people').insert(list.map(pToRow)).then(function(r2){if(r2.error)throw r2.error;return r2;});});}
+
+/* === LOAD/POLL === */
+function loadTree(initial){
+  setStatus('syncing');
+  if(initial)$('loading').classList.add('show');
+  return dbFetchAll().then(function(people){
+    state.people=people;setStatus('ok');
+    if(initial){$('loading').classList.remove('show');render();fit();startPolling();}
+    else{render();if($('panel').classList.contains('open')){if(byId(selectedId))renderPanel();else{toast('Updated by someone else');closePanel();}}}
+  }).catch(function(err){
+    setStatus('error');
+    if(initial){
+      $('loading').innerHTML='<div class="box"><h2>Can not reach the tree</h2><p>Check your internet connection.</p><button class="btn primary" id="btn-retry">Try again</button></div>';
+      $('btn-retry').addEventListener('click',function(){$('loading').innerHTML='<div class="box"><div class="spin"></div><p>Loading...</p></div>';loadTree(true);});
+    }else{toast('Could not sync - check connection');}
+    console.error(err);
+  });
+}
+function startPolling(){
+  stopPolling();
+  pollTimer=setInterval(function(){if(document.visibilityState!=='visible')return;if($('modal').classList.contains('open'))return;loadTree(false);},POLL_MS);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')loadTree(false);});
+  window.addEventListener('online',function(){loadTree(false);});
+}
+function stopPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=null;}
+
+/* === RELATIONSHIPS === */
+function unionsOf(id){
+  var p=byId(id);if(!p)return [];
+  var order=[],map={};
+  function slot(k){if(!map[k]){map[k]=[];order.push(k);}return map[k];}
+  (p.partners||[]).forEach(function(pt){slot(pt);});
+  childrenOf(id).forEach(function(c){
+    var other='';
+    for(var i=0;i<c.parents.length;i++){if(c.parents[i]!==id){other=c.parents[i];break;}}
+    slot(other).push(c.id);
+  });
+  var out=order.map(function(k){return{partnerId:k||null,children:map[k]};});
+  if(!out.length)out.push({partnerId:null,children:[]});
+  return out;
+}
+function linkPartners(a,b){var A=byId(a),B=byId(b);if(!A||!B||a===b)return;if(A.partners.indexOf(b)<0)A.partners.push(b);if(B.partners.indexOf(a)<0)B.partners.push(a);}
+function unlinkPartners(a,b){var A=byId(a),B=byId(b);if(A)A.partners=A.partners.filter(function(x){return x!==b;});if(B)B.partners=B.partners.filter(function(x){return x!==a;});}
+function setParent(childId,parentId){
+  var c=byId(childId);if(!c||childId===parentId)return false;
+  if(c.parents.indexOf(parentId)>-1)return true;
+  if(c.parents.length>=2)return false;
+  if(descendants(childId)[parentId])return false;
+  c.parents.push(parentId);
+  if(c.parents.length===2)linkPartners(c.parents[0],c.parents[1]);
+  return true;
+}
+function descendants(id,seen){seen=seen||{};childrenOf(id).forEach(function(c){if(!seen[c.id]){seen[c.id]=true;descendants(c.id,seen);}});return seen;}
+function removePerson(id){
+  state.people=state.people.filter(function(p){return p.id!==id;});
+  state.people.forEach(function(p){p.parents=p.parents.filter(function(x){return x!==id;});p.partners=p.partners.filter(function(x){return x!==id;});});
+}
+
+/* === TOPOLOGICAL SORT (Kahn - parent edges only) === */
+function topoSort(){
+  var inDeg={},adj={};
+  state.people.forEach(function(p){inDeg[p.id]=0;adj[p.id]=[];});
+  state.people.forEach(function(p){p.parents.forEach(function(pid){if(adj[pid]){adj[pid].push(p.id);inDeg[p.id]++;}});});
+  var queue=state.people.filter(function(p){return inDeg[p.id]===0;}).map(function(p){return p.id;});
+  var result=[];
+  while(queue.length){var id=queue.shift();result.push(id);(adj[id]||[]).forEach(function(cid){if(--inDeg[cid]===0)queue.push(cid);});}
+  state.people.forEach(function(p){if(result.indexOf(p.id)<0)result.push(p.id);});
+  return result;
+}
+
+/* === LAYOUT === */
+function measure(id,depth,placed){
+  placed[id]=true;
+  var segs=unionsOf(id).map(function(u,i){
+    var pt=u.partnerId;
+    if(pt&&placed[pt])pt=null;else if(pt)placed[pt]=true;
+    var kids=u.children.filter(function(c){return !placed[c];}).map(function(c){return measure(c,depth+1,placed);});
+    var kidsW=kids.length?kids.reduce(function(s,k){return s+k.width;},0)+SIB_GAP*(kids.length-1):0;
+    var leadW=(i===0)?(pt?NODE_W*2+COUPLE_GAP:NODE_W):NODE_W;
+    return{partnerId:pt,kids:kids,kidsW:kidsW,leadW:leadW,width:Math.max(leadW,kidsW)};
+  });
+  var width=segs.reduce(function(s,x){return s+x.width;},0)+COUPLE_GAP*(segs.length-1);
+  return{id:id,depth:depth,segs:segs,width:width,x:0};
+}
+function place(node,left,out){
+  var cursor=left,y=node.depth*(NODE_H+GEN_GAP);
+  node.segs.forEach(function(seg,i){
+    var segCenter=cursor+seg.width/2,leadLeft=segCenter-seg.leadW/2,partnerX=null;
+    if(i===0){node.x=leadLeft;out.nodes.push({id:node.id,x:node.x,y:y,depth:node.depth});if(seg.partnerId)partnerX=leadLeft+NODE_W+COUPLE_GAP;}
+    else{partnerX=leadLeft;}
+    if(partnerX!==null&&seg.partnerId){
+      out.nodes.push({id:seg.partnerId,x:partnerX,y:y,depth:node.depth});
+      out.links.push({type:'couple',x1:node.x+NODE_W,x2:partnerX,y:y+NODE_H/2});
+    }
+    if(seg.kids.length){
+      var anchor;
+      if(i===0&&seg.partnerId)anchor=node.x+NODE_W+COUPLE_GAP/2;
+      else if(i===0)anchor=node.x+NODE_W/2;
+      else anchor=partnerX+NODE_W/2;
+      var cx=segCenter-seg.kidsW/2,tops=[];
+      seg.kids.forEach(function(k){place(k,cx,out);tops.push(k.x+NODE_W/2);cx+=k.width+SIB_GAP;});
+      out.links.push({type:'children',from:{x:anchor,y:y+NODE_H},to:tops.map(function(t){return{x:t,y:(node.depth+1)*(NODE_H+GEN_GAP)};})});
+    }
+    cursor+=seg.width+COUPLE_GAP;
+  });
+}
+function computeLayout(){
+  var out={nodes:[],links:[]},placed={},cursor=0;
+  var topo=topoSort();
+  /* Pick subtree roots: parentless people not dominated by an earlier rootless partner */
+  var dominated={},roots=[];
+  topo.forEach(function(id){
+    var p=byId(id);if(!p||p.parents.length||dominated[id])return;
+    roots.push(id);
+    (p.partners||[]).forEach(function(pid){var pt=byId(pid);if(pt&&!pt.parents.length)dominated[pid]=true;});
+  });
+  roots.concat(topo).forEach(function(id){
+    if(placed[id])return;
+    var tree=measure(id,0,placed);place(tree,cursor,out);cursor+=tree.width+TREE_GAP;
+  });
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  out.nodes.forEach(function(n){minX=Math.min(minX,n.x);minY=Math.min(minY,n.y);maxX=Math.max(maxX,n.x+NODE_W);maxY=Math.max(maxY,n.y+NODE_H);});
+  if(!out.nodes.length){minX=minY=0;maxX=maxY=0;}
+  var dx=PAD-minX,dy=PAD-minY;
+  out.nodes.forEach(function(n){n.x+=dx;n.y+=dy;});
+  out.links.forEach(function(l){if(l.type==='couple'){l.x1+=dx;l.x2+=dx;l.y+=dy;}else{l.from.x+=dx;l.from.y+=dy;l.to.forEach(function(t){t.x+=dx;t.y+=dy;});}});
+  var rows={};out.nodes.forEach(function(n){rows[n.depth]=n.y;});
+  layout={nodes:out.nodes,links:out.links,rows:Object.keys(rows).map(function(d){return{depth:+d,y:rows[d]};}).sort(function(a,b){return a.depth-b.depth;}),bounds:{x:0,y:0,w:(maxX-minX)+PAD*2,h:(maxY-minY)+PAD*2}};
+}
+
+/* === RENDER === */
+function render(){
+  computeLayout();
+  $('count').textContent=state.people.length?(state.people.length+(state.people.length===1?' person':' people')):'';
+  $('empty').hidden=state.people.length>0;
+  Array.prototype.slice.call(world.querySelectorAll('.card')).forEach(function(el){el.remove();});
+  var frag=document.createDocumentFragment();
+  layout.nodes.forEach(function(n){
+    var p=byId(n.id);if(!p)return;
+    var el=document.createElement('div');
+    el.className='card'+(p.id===selectedId?' selected':'');
+    el.style.left=n.x+'px';el.style.top=n.y+'px';
+    el.dataset.id=p.id;el.tabIndex=0;el.setAttribute('role','button');
+    var sym=gSym(p.gender),span=lifespan(p);
+    var where=p.living?(p.current||p.birthplace):p.birthplace;
+    var details='';
+    if(p.birthplace)details+='<div class="card-detail"><span class="icon">&#128205;</span><span class="text">b. '+esc(p.birthplace)+'</span></div>';
+    if(where&&p.living&&where!==p.birthplace)details+='<div class="card-detail"><span class="icon">&#128204;</span><span class="text">'+esc(where)+'</span></div>';
+    el.innerHTML=(p.living?'<span class="living"></span>':'')+
+      '<div class="card-head">'+(sym?'<div class="gender">'+sym+'</div>':'')+
+      '<div class="names"><h3 class="nm">'+esc(p.name)+'</h3>'+(span?'<div class="yr">'+esc(span)+'</div>':'')+'</div></div>'+
+      (details?'<div class="card-details">'+details+'</div>':'');
+    frag.appendChild(el);
+  });
+  world.appendChild(frag);
+  svg.setAttribute('width',layout.bounds.w);svg.setAttribute('height',layout.bounds.h);
+  var d=[];
+  layout.links.forEach(function(l){
+    if(l.type==='couple'){d.push('M'+l.x1+' '+l.y+' H'+l.x2);}
+    else{
+      var busY=l.from.y+GEN_GAP/2;
+      d.push('M'+l.from.x+' '+l.from.y+' V'+busY);
+      var xs=l.to.map(function(t){return t.x;}),lo=Math.min.apply(null,xs),hi=Math.max.apply(null,xs);
+      if(hi>lo)d.push('M'+lo+' '+busY+' H'+hi);
+      l.to.forEach(function(t){d.push('M'+t.x+' '+busY+' V'+t.y);});
+    }
+  });
+  svg.innerHTML='<path d="'+d.join(' ')+'" fill="none" stroke="#4A4844" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
+  applyView();applySearch();
+}
+function applyView(){world.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.k+')';drawRail();}
+function drawRail(){
+  var rail=$('rail');rail.innerHTML='';
+  if(!layout.rows.length||view.k<0.32)return;
+  var h=stage.clientHeight;
+  layout.rows.forEach(function(r){
+    var sy=r.y*view.k+view.y+(NODE_H/2)*view.k;
+    if(sy<24||sy>h-12)return;
+    var m=document.createElement('div');m.className='rail-mark';m.style.top=sy+'px';m.textContent=ROMAN[r.depth]||(r.depth+1);rail.appendChild(m);
+  });
+}
+
+/* === PAN/ZOOM === */
+function clampK(k){return Math.max(0.12,Math.min(2.4,k));}
+function zoomAt(cx,cy,factor){var k2=clampK(view.k*factor),ratio=k2/view.k;view.x=cx-(cx-view.x)*ratio;view.y=cy-(cy-view.y)*ratio;view.k=k2;applyView();}
+function fit(animate){
+  var w=stage.clientWidth,h=stage.clientHeight,bw=layout.bounds.w||1,bh=layout.bounds.h||1;
+  view.k=clampK(Math.min(w/bw,h/bh,1));view.x=(w-bw*view.k)/2;view.y=(h-bh*view.k)/2;
+  if(animate){world.style.transition='transform .3s cubic-bezier(.4,0,.2,1)';setTimeout(function(){world.style.transition='';},320);}
+  applyView();
+}
+function centreOn(id,k){
+  var n=null;for(var i=0;i<layout.nodes.length;i++){if(layout.nodes[i].id===id){n=layout.nodes[i];break;}}
+  if(!n)return;
+  var panelW=0,panel=$('panel');
+  if(panel.classList.contains('open')&&stage.clientWidth>660)panelW=panel.offsetWidth;
+  view.k=clampK(k||Math.max(view.k,0.75));
+  view.x=(stage.clientWidth-panelW)/2-(n.x+NODE_W/2)*view.k;
+  view.y=stage.clientHeight/2-(n.y+NODE_H/2)*view.k;
+  world.style.transition='transform .3s cubic-bezier(.4,0,.2,1)';
+  setTimeout(function(){world.style.transition='';},320);applyView();
+}
+function initPointer(){
+  var pointers={},panning=false,last=null,pinch=null;
+  stage.addEventListener('pointerdown',function(e){
+    if(e.target.closest('#zoom')||e.target.closest('#empty .box'))return;
+    pointers[e.pointerId]={x:e.clientX,y:e.clientY};var ids=Object.keys(pointers);
+    if(ids.length===1){var card=e.target.closest('.card');last={x:e.clientX,y:e.clientY,moved:0,card:card};panning=true;stage.classList.add('grabbing');stage.setPointerCapture(e.pointerId);}
+    else if(ids.length===2){panning=false;var a=pointers[ids[0]],b=pointers[ids[1]];pinch={dist:Math.hypot(a.x-b.x,a.y-b.y),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2};}
+  });
+  stage.addEventListener('pointermove',function(e){
+    if(!pointers[e.pointerId])return;
+    pointers[e.pointerId]={x:e.clientX,y:e.clientY};var ids=Object.keys(pointers);
+    if(pinch&&ids.length===2){
+      var a=pointers[ids[0]],b=pointers[ids[1]];var dist=Math.hypot(a.x-b.x,a.y-b.y),cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+      var rect=stage.getBoundingClientRect();if(pinch.dist>0)zoomAt(cx-rect.left,cy-rect.top,dist/pinch.dist);
+      view.x+=cx-pinch.cx;view.y+=cy-pinch.cy;pinch={dist:dist,cx:cx,cy:cy};applyView();return;
+    }
+    if(panning&&last){var dx=e.clientX-last.x,dy=e.clientY-last.y;last.moved+=Math.abs(dx)+Math.abs(dy);view.x+=dx;view.y+=dy;last.x=e.clientX;last.y=e.clientY;applyView();}
+  });
+  function up(e){
+    if(last&&last.moved<6){if(last.card)select(last.card.dataset.id);else if(!e.target.closest('#panel'))closePanel();}
+    delete pointers[e.pointerId];if(Object.keys(pointers).length<2)pinch=null;
+    if(!Object.keys(pointers).length){panning=false;last=null;stage.classList.remove('grabbing');}
+  }
+  stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+  stage.addEventListener('wheel',function(e){
+    e.preventDefault();var rect=stage.getBoundingClientRect();
+    zoomAt(e.clientX-rect.left,e.clientY-rect.top,Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0016)));
+  },{passive:false});
+  world.addEventListener('keydown',function(e){var card=e.target.closest('.card');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select(card.dataset.id);}});
+  window.addEventListener('resize',function(){drawRail();});
+}
+
+/* === SEARCH === */
+function applySearch(){
+  var q=$('search').value.trim().toLowerCase();var cards=world.querySelectorAll('.card');
+  for(var i=0;i<cards.length;i++){var c=cards[i];c.classList.remove('hit','dim');if(!q)continue;var p=byId(c.dataset.id);var hay=(p.name+' '+p.birthplace+' '+p.occupation+' '+p.current).toLowerCase();if(hay.indexOf(q)>-1)c.classList.add('hit');else c.classList.add('dim');}
+}
+
+/* === PANEL === */
+function select(id){selectedId=id;render();openPanel();renderPanel();}
+function openPanel(){$('panel').classList.add('open');}
+function closePanel(){$('panel').classList.remove('open');selectedId=null;render();}
+function row(label,value){return '<div class="field"><label>'+esc(label)+'</label><div class="val'+(value?'':' none')+'">'+esc(value||'Not recorded')+'</div></div>';}
+function renderPanel(){
+  var p=byId(selectedId);if(!p){closePanel();return;}
+  var sym=gSym(p.gender);
+  $('p-name').textContent=p.name+(sym?' '+sym:'');
+  $('p-sub').textContent=lifespan(p)||(p.living?'Living':'');
+  var html='';
+  html+=row('Gender',gLabel(p.gender));
+  html+=row('Date of birth',p.dob);
+  html+=row('Birthplace',p.birthplace);
+  if(p.living)html+=row('Where they are now',p.current);else html+=row('Date of death',p.dod);
+  html+=row('Occupation',p.occupation);
+  html+=row('Life summary',p.summary);
+  var parents=p.parents.map(byId).filter(Boolean);
+  var partners=p.partners.map(byId).filter(Boolean);
+  var kids=childrenOf(p.id);
+  var siblings=[];
+  if(parents.length){state.people.forEach(function(o){if(o.id===p.id)return;for(var i=0;i<o.parents.length;i++){if(p.parents.indexOf(o.parents[i])>-1){siblings.push(o);return;}}});}
+  function relGroup(title,list,kind,canUnlink){
+    if(!list.length)return '';
+    return '<div class="rel-group"><h3>'+title+'</h3><div class="rel-list">'+
+      list.map(function(x){
+        var ul=canUnlink?'<button class="unlink" data-unlink-from="'+x.id+'" data-unlink-kind="'+kind+'" title="Remove this link" aria-label="Remove link to '+esc(x.name)+'">&#x2715;</button>':'';
+        return '<button class="rel-item" data-go="'+x.id+'"><span class="rel-name">'+esc(x.name)+'</span><span class="kind">'+kind+'</span>'+ul+'</button>';
+      }).join('')+'</div></div>';
+  }
+  html+=relGroup('Parents',parents,'parent',true);
+  html+=relGroup('Partner',partners,'partner',true);
+  html+=relGroup('Siblings',siblings,'sibling',false);
+  html+=relGroup('Children',kids,'child',false);
+  html+='<div class="rel-group"><h3>Add to the tree</h3><div class="rel-actions">'+
+    '<button class="btn" data-act="parent"'+(p.parents.length>=2?' disabled':'')+'>Add parent</button>'+
+    '<button class="btn" data-act="partner">Add partner</button>'+
+    '<button class="btn" data-act="child">Add child</button></div></div>';
+  $('p-body').innerHTML=html;
+  $('p-foot').innerHTML=
+    '<button class="btn primary" data-act="edit">Edit details</button>'+
+    '<button class="btn" data-act="centre">Centre</button>'+
+    '<button class="btn danger" data-act="delete" style="margin-left:auto">Remove person</button>';
+}
+
+/* === FORMS === */
+function openEdit(id){
+  var p=byId(id);if(!p)return;
+  sheet('Edit details','Dates can be as rough as you like - "about 1890" is fine.',
+    '<div class="field"><label>Full name</label><input id="f-name" value="'+esc(p.name)+'" autocomplete="off"></div>'+
+    '<div class="field"><label>Gender</label><select id="f-gender"><option value="">Not specified</option>'+
+    '<option value="M"'+(p.gender==='M'?' selected':'')+'>Male</option>'+
+    '<option value="F"'+(p.gender==='F'?' selected':'')+'>Female</option></select></div>'+
+    '<div class="field"><label class="check" style="margin:0"><input type="checkbox" id="f-living"'+(p.living?' checked':'')+' ><span>Still living</span></label></div>'+
+    '<div class="grid2"><div class="field"><label>Date of birth</label><input id="f-dob" value="'+esc(p.dob)+'" placeholder="12 March 1943"></div>'+
+    '<div class="field" id="wrap-dod"><label>Date of death</label><input id="f-dod" value="'+esc(p.dod)+'" placeholder="4 Nov 2011"></div></div>'+
+    '<div class="field"><label>Birthplace</label><input id="f-birthplace" value="'+esc(p.birthplace)+'" placeholder="Salford, Lancashire"></div>'+
+    '<div class="field" id="wrap-current"><label>Where they are now</label><input id="f-current" value="'+esc(p.current)+'" placeholder="Perth, Australia"></div>'+
+    '<div class="field"><label>Occupation</label><input id="f-occupation" value="'+esc(p.occupation)+'" placeholder="Railway engineer"></div>'+
+    '<div class="field"><label>Life summary</label><textarea id="f-summary" placeholder="How they met, what they were known for, where they moved...">'+esc(p.summary)+'</textarea></div>',
+    'Save changes',
+    function(){
+      var name=$('f-name').value.trim();if(!name){toast('A name is needed');return false;}
+      p.name=name;p.gender=$('f-gender').value;p.living=$('f-living').checked;
+      p.dob=$('f-dob').value.trim();p.dod=$('f-dod').value.trim();
+      p.birthplace=$('f-birthplace').value.trim();p.current=$('f-current').value.trim();
+      p.occupation=$('f-occupation').value.trim();p.summary=$('f-summary').value.trim();
+      if(p.living)p.dod='';
+      render();renderPanel();setStatus('syncing');
+      dbUpdate(p).then(function(){setStatus('ok');toast('Saved');}).catch(function(){setStatus('error');toast('Saved here, but could not sync');});
+    }
+  );
+  var toggle=function(){var l=$('f-living').checked;$('wrap-dod').style.display=l?'none':'';$('wrap-current').style.display=l?'':'none';};
+  $('f-living').addEventListener('change',toggle);toggle();
+  setTimeout(function(){$('f-name').focus();$('f-name').select();},60);
+}
+
+function openRelate(kind,anchorId){
+  var anchor=anchorId?byId(anchorId):null;
+  var titles={parent:'Add a parent',partner:'Add a partner',child:'Add a child',first:'Add a person'};
+  var ledeMap={};
+  if(anchor){
+    ledeMap.parent='This person will be recorded as a parent of '+esc(anchor.name)+'.';
+    ledeMap.partner='This person will be recorded as '+esc(anchor.name)+'s partner.';
+    ledeMap.child='This person will be recorded as a child of '+esc(anchor.name)+'.';
+  }
+  var lede=anchor?(ledeMap[kind]||''):'You can fill in the rest of their details afterwards.';
+  var others=state.people.filter(function(o){
+    if(!anchor)return true;if(o.id===anchor.id)return false;
+    if(kind==='parent')return anchor.parents.indexOf(o.id)<0&&!descendants(anchor.id)[o.id];
+    if(kind==='partner')return anchor.partners.indexOf(o.id)<0;
+    if(kind==='child')return o.parents.length<2&&o.parents.indexOf(anchor.id)<0&&!descendants(o.id)[anchor.id];
+    return true;
+  });
+  var otherParentSel='';
+  if(kind==='child'&&anchor&&anchor.partners.length){
+    otherParentSel='<div class="field"><label>Other parent</label><select id="f-other"><option value="">Not recorded</option>'+
+      anchor.partners.map(byId).filter(Boolean).map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+'</option>';}).join('')+'</select></div>';
+  }
+  var linkBlock=others.length
+    ?'<div class="divider">or link existing</div><div class="field"><label>Someone already in the tree</label>'+
+      '<select id="f-link"><option value="">Choose a person...</option>'+
+      others.map(function(x){return '<option value="'+x.id+'">'+esc(x.name)+(lifespan(x)?' - '+esc(lifespan(x)):'')+' </option>';}).join('')+'</select></div>'
+    :'';
+  sheet(titles[kind]||'Add a person',lede,
+    '<div class="field"><label>Full name</label><input id="f-name" placeholder="e.g. Margaret Booth" autocomplete="off"></div>'+
+    '<div class="field"><label>Gender</label><select id="f-gender"><option value="">Not specified</option><option value="M">Male</option><option value="F">Female</option></select></div>'+
+    otherParentSel+linkBlock,
+    'Add',
+    function(){
+      var linked=$('f-link')?$('f-link').value:'',name=$('f-name').value.trim();
+      var target,isNew=false;
+      if(linked){target=byId(linked);}
+      else{if(!name){toast('Enter a name, or pick someone from the list');return false;}target=blankPerson(name);target.gender=$('f-gender').value;state.people.push(target);isNew=true;}
+      if(!target)return false;
+      var touched={};touched[target.id]=true;
+      if(anchor){
+        touched[anchor.id]=true;
+        if(kind==='parent'){
+          if(!setParent(anchor.id,target.id)){toast('That link would create a loop');if(isNew)state.people.pop();return false;}
+          anchor.parents.forEach(function(pid){touched[pid]=true;});
+        }else if(kind==='partner'){linkPartners(anchor.id,target.id);}
+        else if(kind==='child'){
+          if(!setParent(target.id,anchor.id)){toast('That link would create a loop');if(isNew)state.people.pop();return false;}
+          var other=$('f-other')?$('f-other').value:'';if(other)setParent(target.id,other);
+          target.parents.forEach(function(pid){touched[pid]=true;});
+        }
+      }
+      selectedId=target.id;render();openPanel();renderPanel();centreOn(target.id);
+      toast(linked?'Linked':'Added '+target.name);
+      setStatus('syncing');
+      var ops=Object.keys(touched).map(function(id){var person=byId(id);if(!person)return Promise.resolve();return(id===target.id&&isNew)?dbInsert(person):dbUpdate(person);});
+      Promise.all(ops).then(function(){setStatus('ok');}).catch(function(){setStatus('error');toast('Saved here, but could not sync');});
+    }
+  );
+  setTimeout(function(){$('f-name').focus();},60);
+}
+
+function doUnlink(fromId,kind){
+  var p=byId(selectedId);if(!p)return;
+  var other=byId(fromId);if(!other)return;
+  if(kind==='parent'){p.parents=p.parents.filter(function(x){return x!==fromId;});}
+  else if(kind==='partner'){unlinkPartners(selectedId,fromId);}
+  render();renderPanel();
+  setStatus('syncing');
+  var ops=[dbUpdate(p)];
+  if(kind==='partner')ops.push(dbUpdate(other));
+  Promise.all(ops).then(function(){setStatus('ok');toast('Link removed');}).catch(function(){setStatus('error');toast('Removed here, but could not sync');});
+}
+
+function sheet(title,lede,body,cta,onSubmit){
+  $('sheet').innerHTML='<h3>'+esc(title)+'</h3>'+(lede?'<p class="lede">'+lede+'</p>':'')+
+    '<form id="sheet-form" onsubmit="event.preventDefault();">'+body+
+    '<div class="acts"><button type="button" class="btn ghost" data-close>Cancel</button>'+
+    '<button type="submit" class="btn primary">'+esc(cta)+'</button></div></form>';
+  $('modal').classList.add('open');
+  $('sheet-form').addEventListener('submit',function(e){e.preventDefault();if(onSubmit()!==false)closeSheet();});
+}
+function closeSheet(){$('modal').classList.remove('open');$('sheet').innerHTML='';}
+function confirmSheet(title,lede,cta,onYes){
+  sheet(title,lede,'',cta,onYes);
+  var btn=$('sheet-form').querySelector('.btn.primary');btn.classList.remove('primary');btn.classList.add('danger');
+}
+
+/* === BACKUP/RESTORE === */
+function exportFile(){
+  if(!state.people.length){toast('Nothing to back up yet');return;}
+  var blob=new Blob([JSON.stringify({version:1,savedAt:new Date().toISOString(),people:state.people},null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='family-tree-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);toast('Backup saved to downloads');
+}
+function importFile(file){
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var d=JSON.parse(r.result);if(!d||!Array.isArray(d.people))throw new Error('bad');
+      confirmSheet('Replace the shared tree?','The file holds '+d.people.length+' people. This replaces the tree for everyone. Save a backup first if needed.','Replace it',
+        function(){state=normalise(d);selectedId=null;render();fit(true);closePanel();setStatus('syncing');
+          dbReplaceAll(state.people).then(function(){setStatus('ok');toast('Restored '+state.people.length+' people');}).catch(function(){setStatus('error');toast('Restored here, but could not sync');});});
+    }catch(e){toast('That file could not be read');}
+  };
+  r.readAsText(file);
+}
+
+/* === WIRING === */
+function boot(){
+  stage=$('stage');world=$('world');svg=$('links');
+  initClient();initPointer();
+  $('btn-add').addEventListener('click',function(){openRelate('first',null);});
+  $('btn-first').addEventListener('click',function(){openRelate('first',null);});
+  $('btn-export').addEventListener('click',exportFile);
+  $('btn-import').addEventListener('click',function(){$('file-input').click();});
+  $('file-input').addEventListener('change',function(e){if(e.target.files[0])importFile(e.target.files[0]);e.target.value='';});
+  $('btn-lock').addEventListener('click',function(){sessionStorage.removeItem(SESSION_KEY);location.reload();});
+  $('search').addEventListener('input',applySearch);
+  $('z-in').addEventListener('click',function(){zoomAt(stage.clientWidth/2,stage.clientHeight/2,1.25);});
+  $('z-out').addEventListener('click',function(){zoomAt(stage.clientWidth/2,stage.clientHeight/2,0.8);});
+  $('z-fit').addEventListener('click',function(){fit(true);});
+  $('p-close').addEventListener('click',closePanel);
+
+  $('p-body').addEventListener('click',function(e){
+    var unlink=e.target.closest('.unlink');
+    if(unlink){
+      e.stopPropagation();
+      var fromId=unlink.dataset.unlinkFrom,kind=unlink.dataset.unlinkKind;
+      var other=byId(fromId);
+      confirmSheet('Remove this '+kind+' link?','This only removes the recorded link. Neither person is deleted from the tree.','Remove link',function(){doUnlink(fromId,kind);});
+      return;
+    }
+    var go=e.target.closest('[data-go]');if(go){select(go.dataset.go);centreOn(go.dataset.go);}
+  });
+
+  $('p-foot').addEventListener('click',function(e){
+    var act=e.target.closest('[data-act]');if(!act)return;
+    var a=act.dataset.act;
+    if(a==='edit')openEdit(selectedId);
+    else if(a==='centre')centreOn(selectedId,1);
+    else if(a==='parent'||a==='partner'||a==='child')openRelate(a,selectedId);
+    else if(a==='delete'){
+      var p=byId(selectedId);
+      confirmSheet('Remove '+p.name+'?','Their details go for good, and all recorded links to them are cut. Other people in the tree stay.','Remove',function(){
+        var id=selectedId;
+        var affected=state.people.filter(function(o){return o.parents.indexOf(id)>-1||o.partners.indexOf(id)>-1;}).map(function(o){return o.id;});
+        removePerson(id);selectedId=null;render();closePanel();
+        setStatus('syncing');
+        var ops=[dbDelete(id)];
+        affected.forEach(function(pid){var person=byId(pid);if(person)ops.push(dbUpdate(person));});
+        Promise.all(ops).then(function(){setStatus('ok');toast('Removed');}).catch(function(){setStatus('error');toast('Removed here, but could not sync');});
+      });
+    }
+  });
+
+  $('modal').addEventListener('click',function(e){if(e.target.id==='modal'||e.target.closest('[data-close]'))closeSheet();});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    if($('modal').classList.contains('open'))closeSheet();
+    else if($('panel').classList.contains('open'))closePanel();
+  });
+  loadTree(true);
+}
+
+/* === GATE === */
+function unlock(){$('gate').remove();$('app').hidden=false;boot();}
+$('gate-form').addEventListener('submit',function(e){
+  e.preventDefault();
+  var v=$('gate-input').value;
+  if(v===PASSWORD){try{sessionStorage.setItem(SESSION_KEY,'1');}catch(err){}unlock();}
+  else{
+    $('gate-err').textContent='That password is not right. Try again.';
+    $('gate').querySelector('.inner').classList.remove('shake');
+    void $('gate').offsetWidth;
+    $('gate').querySelector('.inner').classList.add('shake');
+    $('gate-input').select();
+  }
+});
+try{if(sessionStorage.getItem(SESSION_KEY)==='1')unlock();else $('gate-input').focus();}catch(err){$('gate-input').focus();}
+
+})();
+</script>
+</body>
+</html>
